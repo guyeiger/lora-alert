@@ -3,68 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת התרעה LoRa - מבצעי</title>
+    <title>LoRa Alert System</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+
     <style>
         body { 
             margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            transition: background 0.8s; background-color: #2c3e50; color: white; text-align: center;
+            height: 100vh; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            transition: background 0.8s ease; background-color: #2c3e50; color: white; text-align: center;
         }
-        #status-text { font-size: 3.5rem; font-weight: bold; text-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
-        #sub-text { font-size: 1.5rem; margin-top: 10px; opacity: 0.9; }
+        #status-text { font-size: 3.5rem; font-weight: bold; text-shadow: 2px 2px 10px rgba(0,0,0,0.4); margin: 0; }
+        #sub-text { font-size: 1.4rem; margin-top: 15px; opacity: 0.9; font-weight: 300; }
+        
         button { 
-            padding: 20px 60px; font-size: 1.5rem; cursor: pointer; border-radius: 50px; 
+            padding: 18px 50px; font-size: 1.4rem; cursor: pointer; border-radius: 50px; 
             border: none; background: white; color: #2c3e50; font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s, background 0.2s;
+            margin-top: 30px;
         }
-        button:active { transform: scale(0.95); }
+        button:active { transform: scale(0.95); background: #ecf0f1; }
+        
+        .connection-dot { width: 12px; height: 12px; background: #e74c3c; border-radius: 50%; display: inline-block; margin-left: 8px; }
+        .connected .connection-dot { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
     </style>
 </head>
-<body>
+<body id="mainBody">
 
-    <div id="status-text">מערכת מוכנה</div>
-    <div id="sub-text">יש לחבר מקלט וללחוץ על הכפתור</div>
-    <br>
-    <button id="connectBtn">התחבר למקלט</button>
+    <div id="status-container">
+        <div id="status-text">מערכת מנותקת</div>
+        <div id="sub-text">חבר מקלט ולחץ על כפתור החיבור</div>
+    </div>
+
+    <button id="connectBtn">התחבר למקלט (USB)</button>
 
     <script>
+        const body = document.getElementById('mainBody');
         const statusText = document.getElementById('status-text');
         const subText = document.getElementById('sub-text');
         const connectBtn = document.getElementById('connectBtn');
-        const body = document.body;
+
+        // רישום ה-Service Worker לעבודה באופליין
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered'))
+                    .catch(err => console.log('SW Error', err));
+            });
+        }
 
         connectBtn.addEventListener('click', async () => {
             try {
+                // בקשת גישה למכשיר ה-USB
                 const device = await navigator.usb.requestDevice({ filters: [] });
                 await device.open();
                 await device.selectConfiguration(1);
                 await device.claimInterface(0);
                 
+                // עדכון ממשק לחיבור ראשוני
+                document.body.classList.add('connected');
                 connectBtn.style.display = 'none';
-                updateUI('0'); // התחלה במצב שגרה
-                
+                updateUI('0'); 
+
+                // התחלת לופ קריאת הנתונים
                 startReading(device);
             } catch (err) {
-                statusText.innerText = "שגיאה בחיבור";
-                subText.innerText = err.message;
+                console.error(err);
+                subText.innerText = "שגיאה: " + err.message;
             }
         });
 
         async function startReading(device) {
-            const endpoint = 2; 
+            const endpoint = 2; // הצינור שגילינו שעובד אצלך
             while (true) {
                 try {
                     const result = await device.transferIn(endpoint, 64);
                     const bytes = Array.from(new Uint8Array(result.data.buffer));
                     
-                    // זיהוי לפי הביטים שגילינו (248 תמיד מופיע, נבדוק את המספר השני)
+                    // זיהוי המצבים לפי הביטים המדויקים שקיבלת מהלורה
                     if (bytes.includes(24)) updateUI('2');      // אזעקה
                     else if (bytes.includes(6)) updateUI('1');  // התרעה
                     else if (bytes.includes(30)) updateUI('3'); // סיום
                     else if (bytes.includes(0)) updateUI('0');  // שגרה
                     
                 } catch (err) {
-                    statusText.innerText = "החיבור נותק";
+                    statusText.innerText = "החיבור אבד";
+                    subText.innerText = "נא לחבר מחדש את המקלט";
+                    body.style.backgroundColor = "#2c3e50";
+                    connectBtn.style.display = 'block';
                     break;
                 }
             }
@@ -73,22 +100,22 @@
         function updateUI(state) {
             switch(state) {
                 case '2': // אזעקה
-                    body.style.backgroundColor = "#c0392b";
+                    body.style.backgroundColor = "#c0392b"; // אדום
                     statusText.innerText = "אזעקה!";
-                    subText.innerText = "היכנס למרחב מוגן באופן מיידי";
+                    subText.innerText = "היכנס למרחב מוגן מייד";
                     break;
                 case '1': // התרעה
-                    body.style.backgroundColor = "#d35400";
+                    body.style.backgroundColor = "#d35400"; // כתום
                     statusText.innerText = "התרעה צפויה";
-                    subText.innerText = "יש להישאר בקרבת מרחב מוגן";
+                    subText.innerText = "הישאר בקרבת מרחב מוגן";
                     break;
                 case '3': // סיום
-                    body.style.backgroundColor = "#2980b9";
+                    body.style.backgroundColor = "#2980b9"; // כחול
                     statusText.innerText = "חזרה לשגרה";
                     subText.innerText = "ניתן לצאת מהמרחב המוגן";
                     break;
                 case '0': // שגרה
-                    body.style.backgroundColor = "#27ae60";
+                    body.style.backgroundColor = "#27ae60"; // ירוק
                     statusText.innerText = "שגרה";
                     subText.innerText = "המערכת סורקת וממתינה";
                     break;
