@@ -1,0 +1,15 @@
+{
+  "name": "LoRa Alert System",
+  "short_name": "LoRa Alert",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#2c3e50",
+  "theme_color": "#2c3e50",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/564/564619.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
