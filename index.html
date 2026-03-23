@@ -3,26 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoRa Alert - Live</title>
+    <title>LoRa Debug Mode</title>
     <style>
-        body { 
-            margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            height: 100vh; font-family: sans-serif; transition: background 0.5s; 
-            background-color: #2c3e50; color: white; text-align: center;
-        }
-        #status-text { font-size: 3rem; font-weight: bold; }
-        button { padding: 20px 50px; font-size: 1.5rem; cursor: pointer; border-radius: 50px; border: none; background: white; color: #2c3e50; }
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; background-color: #2c3e50; color: white; text-align: center; }
+        #status-text { font-size: 2.5rem; font-weight: bold; }
+        #raw-data { margin-top: 20px; font-family: monospace; background: black; color: #0f0; padding: 15px; width: 80%; overflow-wrap: break-word; }
+        button { padding: 15px 40px; font-size: 1.2rem; cursor: pointer; border-radius: 50px; border: none; background: white; color: #2c3e50; }
     </style>
 </head>
 <body>
-
-    <div id="status-text">ממתין לחיבור...</div>
+    <div id="status-text">ממתין לנתונים...</div>
     <button id="connectBtn">התחבר למקלט</button>
+    <div id="raw-data">ממתין לבייטים גולמיים...</div>
 
     <script>
         const statusText = document.getElementById('status-text');
+        const rawDataDiv = document.getElementById('raw-data');
         const connectBtn = document.getElementById('connectBtn');
-        const body = document.body;
 
         connectBtn.addEventListener('click', async () => {
             try {
@@ -31,48 +28,27 @@
                 await device.selectConfiguration(1);
                 await device.claimInterface(0);
                 
-                statusText.innerText = "מחובר - שגרה";
-                body.style.backgroundColor = "#27ae60";
+                statusText.innerText = "מחובר! שלח '2' מהמחשב...";
                 connectBtn.style.display = 'none';
 
-                startReading(device);
+                const endpoint = 2; 
+                while (true) {
+                    const result = await device.transferIn(endpoint, 64);
+                    const bytes = new Uint8Array(result.data.buffer);
+                    
+                    // מציג את רשימת המספרים שהתקבלו (למשל: 50, 13, 10)
+                    rawDataDiv.innerText = "התקבלו בייטים: " + Array.from(bytes).join(", ");
+                    
+                    // בדיקה אם אחד מהבייטים הוא 50 (הקוד של '2')
+                    if (Array.from(bytes).includes(50)) {
+                        document.body.style.backgroundColor = "red";
+                        statusText.innerText = "אזעקה!";
+                    }
+                }
             } catch (err) {
                 statusText.innerText = "שגיאה: " + err.message;
             }
         });
-
-        async function startReading(device) {
-            const endpoint = 2; // הצינור שמצאנו!
-            while (true) {
-                try {
-                    const result = await device.transferIn(endpoint, 64);
-                    // הופכים את הבייטים למערך של מספרים כדי שיהיה קל לקרוא
-                    const dataArray = Array.from(new Uint8Array(result.data.buffer));
-                    
-                    // מחפשים את הערך האסקי של הספרות (48 זה '0', 50 זה '2')
-                    if (dataArray.includes(50)) handleSignal('2');
-                    else if (dataArray.includes(49)) handleSignal('1');
-                    else if (dataArray.includes(48) || dataArray.includes(51)) handleSignal('0');
-                    
-                } catch (err) {
-                    console.error(err);
-                    break;
-                }
-            }
-        }
-
-        function handleSignal(code) {
-            if (code === '2') {
-                body.style.backgroundColor = "#c0392b";
-                statusText.innerText = "אזעקה!";
-            } else if (code === '1') {
-                body.style.backgroundColor = "#f39c12";
-                statusText.innerText = "התרעה צפויה";
-            } else if (code === '0') {
-                body.style.backgroundColor = "#27ae60";
-                statusText.innerText = "שגרה";
-            }
-        }
     </script>
 </body>
 </html>
