@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת התרעה LoRa</title>
+    <style>
+        body { 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            font-family: system-ui, -apple-system, sans-serif;
+            transition: background 0.5s; 
+            background-color: #2c3e50; 
+            color: white;
+            text-align: center;
+        }
+        #status-text { font-size: 2.5rem; font-weight: bold; margin-bottom: 20px; }
+        #info { font-size: 1.2rem; opacity: 0.8; margin-bottom: 40px; }
+        button { 
+            padding: 15px 40px; 
+            font-size: 1.2rem; 
+            font-weight: bold;
+            cursor: pointer; 
+            border-radius: 50px; 
+            border: none; 
+            background: white; 
+            color: #2c3e50;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status-text">ממתין לחיבור LoRa...</div>
+    <div id="info">יש לחבר את המקלט וללחוץ על הכפתור</div>
+    
+    <button id="connectBtn">התחבר למקלט (USB)</button>
+
+    <script>
+        const statusText = document.getElementById('status-text');
+        const connectBtn = document.getElementById('connectBtn');
+        const body = document.body;
+
+        async function startSerial() {
+            try {
+                const port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 });
+                
+                statusText.innerText = "מחובר - שגרה";
+                body.style.backgroundColor = "#27ae60"; 
+                connectBtn.style.display = 'none';
+                document.getElementById('info').innerText = "מקבל נתונים בזמן אמת";
+
+                const reader = port.readable.getReader();
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    const code = new TextDecoder().decode(value).trim();
+                    if (code) handleSignal(code);
+                }
+            } catch (err) {
+                statusText.innerText = "שגיאה בחיבור";
+            }
+        }
+
+        function handleSignal(code) {
+            if (code === '2') {
+                body.style.backgroundColor = "#c0392b";
+                statusText.innerText = "אזעקה!";
+            } else if (code === '1') {
+                body.style.backgroundColor = "#f39c12";
+                statusText.innerText = "התרעה צפויה";
+            } else if (code === '0' || code === '3') {
+                body.style.backgroundColor = "#27ae60";
+                statusText.innerText = "שגרה";
+            }
+        }
+        connectBtn.addEventListener('click', startSerial);
+    </script>
+</body>
+</html>
