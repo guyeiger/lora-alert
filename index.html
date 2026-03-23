@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת התרעה LoRa - WebUSB</title>
+    <title>LoRa Monitor - Native</title>
     <style>
         body { 
             margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; 
@@ -19,54 +19,41 @@
 </head>
 <body>
 
-    <div id="status-text">ממתין לחיבור LoRa (WebUSB)...</div>
+    <div id="status-text">ממתין לחיבור USB...</div>
     <button id="connectBtn">התחבר למקלט</button>
-
-    <script src="https://cdn.jsdelivr.net/gh/wtakuo/webusb-serial@master/webusb-serial.js"></script>
 
     <script>
         const statusText = document.getElementById('status-text');
         const connectBtn = document.getElementById('connectBtn');
         const body = document.body;
 
-        // הגדרת חיבור ה-Serial דרך USB
-        const serial = new WebUSBSerial();
-
         connectBtn.addEventListener('click', async () => {
             try {
-                // בקשת מכשיר USB מהמשתמש
-                await serial.connect();
+                // בדיקה אם הדפדפן תומך ב-USB
+                if (!navigator.usb) {
+                    statusText.innerText = "הדפדפן שלך לא תומך ב-USB";
+                    return;
+                }
+
+                // בקשת מכשיר
+                const device = await navigator.usb.requestDevice({ filters: [] });
                 
-                statusText.innerText = "מחובר - שגרה";
+                await device.open();
+                await device.selectConfiguration(1);
+                await device.claimInterface(0);
+                
+                statusText.innerText = "מחובר למכשיר!";
                 body.style.backgroundColor = "#27ae60";
                 connectBtn.style.display = 'none';
 
-                // לופ קריאת נתונים
-                serial.on('data', (data) => {
-                    const decoder = new TextDecoder();
-                    const code = decoder.decode(data).trim();
-                    if (code) handleSignal(code);
-                });
+                // כאן אנחנו רק בודקים זיהוי ראשוני
+                console.log("Device connected:", device.productName);
 
             } catch (err) {
                 statusText.innerText = "שגיאה: " + err.message;
                 console.error(err);
             }
         });
-
-        function handleSignal(code) {
-            console.log("קוד שהתקבל:", code);
-            if (code.includes('2')) {
-                body.style.backgroundColor = "#c0392b";
-                statusText.innerText = "אזעקה!";
-            } else if (code.includes('1')) {
-                body.style.backgroundColor = "#f39c12";
-                statusText.innerText = "התרעה צפויה";
-            } else if (code.includes('0') || code.includes('3')) {
-                body.style.backgroundColor = "#27ae60";
-                statusText.innerText = "שגרה";
-            }
-        }
     </script>
 </body>
 </html>
