@@ -44,5 +44,9 @@ The system is comprised of two ends:
 ---
 
 
+
+https://github.com/user-attachments/assets/e437f292-3989-40bf-a401-b2fd554ce26f
+
+
 ---
 *Note: This project was developed as a proactive response to local emergency needs, focusing on rapid deployment and reliability.*
